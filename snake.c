@@ -4,7 +4,6 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <string.h>
-
 /* Initializing the data */
 
 typedef struct erow
@@ -180,10 +179,10 @@ void processKey()
     switch (chc)
     {
     case ARROW_UP:
-        moveSnake(0, 1);
+        moveSnake(0, -1);
         break;
     case ARROW_DOWN:
-        moveSnake(0, -1);
+        moveSnake(0, 1);
         break;
     case ARROW_LEFT:
         moveSnake(-1, 0);
@@ -301,7 +300,7 @@ int main()
     {
         refreshScreen();
         processKey();
-        sleep(1);
+        usleep(100000);
     }
     disableRawMode();
 }
