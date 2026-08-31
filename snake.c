@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <termios.h>
 #include <stdlib.h>
+#include <time.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <string.h>
@@ -17,6 +18,10 @@ struct gameWindow
     int window_rows;
     int window_cols;
     erow *row;
+    int food_on;
+    int food_x;
+    int food_y;
+    int score;
     struct termios orig_termios;
 };
 
@@ -33,6 +38,9 @@ struct segment
 typedef struct snake
 {
     struct segment *body;
+    struct segment *head;
+    int dir_x;
+    int dir_y;
     int length;
 } snake_data;
 
@@ -45,6 +53,78 @@ enum Control
     ARROW_LEFT,
     ARROW_RIGHT
 };
+
+/* Manipulate the Snake*/
+void moveSnake()
+{
+    int x = snake.dir_x;
+    int y = snake.dir_y;
+
+    struct segment *part = snake.body;
+    while (part->next != NULL)
+    {
+        part->pos_x = part->next->pos_x;
+        part->pos_y = part->next->pos_y;
+        part = part->next;
+    }
+    // Now the part is obviously the head
+    part->pos_x += x;
+    part->pos_y += y;
+}
+
+void addSnakeSeg()
+{
+    struct segment *newSeg = malloc(sizeof(struct segment));
+    struct segment *temp = snake.body;
+    int pos[2] = {temp->pos_x, temp->pos_y};
+    // Takes the location of the segment at the end , movesnake will sort the rest
+    newSeg->pos_x = pos[0];
+    newSeg->pos_y = pos[1];
+    newSeg->next = temp;
+    newSeg->symbol = 'O';
+    snake.body = newSeg;
+}
+
+/* The food Stuff*/
+
+// Picks the location for the food
+void foodLocation(int *x, int *y)
+{
+    *x = rand() % (E.window_cols - 2);
+    *y = rand() % (E.window_rows - 3);
+}
+
+void placeFood()
+{
+    if (E.food_on)
+    {
+        return;
+    }
+    int loc_x;
+    int loc_y;
+    while (1)
+    {
+        foodLocation(&loc_x, &loc_y);
+        if (E.row[loc_y].render[loc_x] == ' ')
+        {
+            break;
+        }
+    }
+    E.row[loc_y].render[loc_x] = '*';
+    E.food_x = loc_x;
+    E.food_y = loc_y;
+    E.food_on = 1;
+}
+
+void foodEatOrNot()
+{
+    if (snake.head->pos_x == E.food_x && snake.head->pos_y == E.food_y)
+    {
+        E.food_on = 0;
+        E.score += 1;
+        addSnakeSeg();
+    }
+}
 
 /* Append Buffer */
 struct abuf
@@ -130,48 +210,6 @@ int readKey()
     return '\x1b';
 }
 
-/* Manipulate the Snake*/
-void moveSnake(int dir_x, int dir_y)
-{
-    static int x = 1;
-    static int y = 0;
-
-    if (dir_x && x == 0)
-    {
-        x = dir_x;
-        y = 0;
-    }
-    else if (dir_y && y == 0)
-    {
-        y = dir_y;
-        x = 0;
-    }
-
-    struct segment *part = snake.body;
-    while (part->next != NULL)
-    {
-        part->pos_x = part->next->pos_x;
-        part->pos_y = part->next->pos_y;
-        part = part->next;
-    }
-    // Now the part is obviously the head
-    part->pos_x += x;
-    part->pos_y += y;
-}
-
-void addSnakeSeg()
-{
-    struct segment *newSeg = malloc(sizeof(struct segment));
-    struct segment *temp = snake.body;
-    int pos[2] = {temp->pos_x, temp->pos_y};
-    moveSnake(0, 0);
-    snake.body = newSeg;
-    newSeg->next = temp;
-    newSeg->pos_x = pos[0];
-    newSeg->pos_y = pos[1];
-    newSeg->symbol = 'O';
-}
-
 /* Handling Input */
 void processKey()
 {
@@ -179,16 +217,20 @@ void processKey()
     switch (chc)
     {
     case ARROW_UP:
-        moveSnake(0, -1);
+        snake.dir_x = 0;
+        snake.dir_y = -1;
         break;
     case ARROW_DOWN:
-        moveSnake(0, 1);
+        snake.dir_x = 0;
+        snake.dir_y = 1;
         break;
     case ARROW_LEFT:
-        moveSnake(-1, 0);
+        snake.dir_x = -1;
+        snake.dir_y = 0;
         break;
     case ARROW_RIGHT:
-        moveSnake(1, 0);
+        snake.dir_x = 1;
+        snake.dir_y = 0;
         break;
     case 'q':
         write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -203,6 +245,8 @@ void emptyTheGame()
     {
         for (int j = 0; j < E.window_cols - 2; j++)
         {
+            if (E.row[i].render[j] == '*')
+                continue;
             E.row[i].render[j] = ' ';
         }
     }
@@ -257,7 +301,8 @@ void drawWindow(struct abuf *ab)
 void refreshScreen()
 {
     struct abuf ab = {NULL, 0};
-    moveSnake(0, 0);
+    foodEatOrNot(); // Here check if it has eaten food or not
+    placeFood();
     renderSnake();
     abBuff(&ab, "\x1b[H", 3);
     drawWindow(&ab);
@@ -290,6 +335,16 @@ void init()
     snake.body->pos_x = (E.window_cols / 2) - 1;
     snake.body->pos_y = ((E.window_rows - 1) / 2) - 1;
     snake.body->symbol = '@';
+    snake.head = snake.body;
+
+    E.score = 0;
+    snake.dir_x = 1;
+    snake.dir_y = 0;
+    /* Initializing the rand function */
+    srand(time(NULL));
+
+    /* foood */
+    E.food_on = 0;
 }
 
 int main()
@@ -300,6 +355,7 @@ int main()
     {
         refreshScreen();
         processKey();
+        moveSnake();
         usleep(100000);
     }
     disableRawMode();
