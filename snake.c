@@ -22,6 +22,7 @@ struct gameWindow
     int food_x;
     int food_y;
     int score;
+    int highScore;
     struct termios orig_termios;
 };
 
@@ -54,7 +55,68 @@ enum Control
     ARROW_RIGHT
 };
 
+/* DIEEEEE */
+void freeEverything()
+{
+    struct segment *temp;
+    while (snake.body != NULL)
+    {
+        temp = snake.body;
+        snake.body = snake.body->next;
+        free(temp);
+    }
+    int rows = 0;
+    while (rows < E.window_rows - 3)
+    {
+        free(E.row[rows].render);
+        rows++;
+    }
+    free(E.row);
+}
+int deathMet()
+{
+    int head_x = snake.head->pos_x;
+    int head_y = snake.head->pos_y;
+    if (head_x > E.window_cols - 3 || head_x < 0 || head_y > E.window_rows - 4 || head_y < 0)
+    {
+        return 1;
+    }
+    else if (E.row[head_y].render[head_x] == 'O')
+    {
+        return 1;
+    }
+    return 0;
+}
+
+void death()
+{
+    if (E.score > E.highScore)
+    {
+        E.highScore = E.score;
+    }
+    E.score = 0;
+    struct segment *temp;
+    while (snake.body != snake.head)
+    {
+        temp = snake.body;
+        snake.body = snake.body->next;
+        free(temp);
+    }
+}
 /* Manipulate the Snake*/
+
+void addSnakeSeg()
+{
+    struct segment *newSeg = malloc(sizeof(struct segment));
+    struct segment *temp = snake.body;
+    int pos[2] = {temp->pos_x, temp->pos_y};
+    // Takes the location of the segment at the end , movesnake will sort the rest
+    newSeg->pos_x = pos[0];
+    newSeg->pos_y = pos[1];
+    newSeg->next = temp;
+    newSeg->symbol = 'O';
+    snake.body = newSeg;
+}
 void moveSnake()
 {
     int x = snake.dir_x;
@@ -70,21 +132,14 @@ void moveSnake()
     // Now the part is obviously the head
     part->pos_x += x;
     part->pos_y += y;
+    if (deathMet())
+    {
+        death();
+        snake.head->pos_x = (E.window_cols / 2) - 1;
+        snake.head->pos_y = ((E.window_rows - 1) / 2) - 1;
+        addSnakeSeg();
+    }
 }
-
-void addSnakeSeg()
-{
-    struct segment *newSeg = malloc(sizeof(struct segment));
-    struct segment *temp = snake.body;
-    int pos[2] = {temp->pos_x, temp->pos_y};
-    // Takes the location of the segment at the end , movesnake will sort the rest
-    newSeg->pos_x = pos[0];
-    newSeg->pos_y = pos[1];
-    newSeg->next = temp;
-    newSeg->symbol = 'O';
-    snake.body = newSeg;
-}
-
 /* The food Stuff*/
 
 // Picks the location for the food
@@ -217,24 +272,37 @@ void processKey()
     switch (chc)
     {
     case ARROW_UP:
-        snake.dir_x = 0;
-        snake.dir_y = -1;
+        if (snake.dir_y == 0)
+        {
+            snake.dir_x = 0;
+            snake.dir_y = -1;
+        }
         break;
     case ARROW_DOWN:
-        snake.dir_x = 0;
-        snake.dir_y = 1;
+        if (snake.dir_y == 0)
+        {
+            snake.dir_x = 0;
+            snake.dir_y = 1;
+        }
         break;
     case ARROW_LEFT:
-        snake.dir_x = -1;
-        snake.dir_y = 0;
+        if (snake.dir_x == 0)
+        {
+            snake.dir_x = -1;
+            snake.dir_y = 0;
+        }
         break;
     case ARROW_RIGHT:
-        snake.dir_x = 1;
-        snake.dir_y = 0;
+        if (snake.dir_x == 0)
+        {
+            snake.dir_x = 1;
+            snake.dir_y = 0;
+        }
         break;
     case 'q':
         write(STDOUT_FILENO, "\x1b[2J", 4);
         write(STDOUT_FILENO, "\x1b[H", 3);
+        freeEverything();
         exit(0);
     }
 }
@@ -280,9 +348,25 @@ void drawWindow(struct abuf *ab)
         abBuff(ab, "\x1b[100m", 6);
         abBuff(ab, " ", 1);
         abBuff(ab, "\x1b[49m", 5);
-
-        abBuff(ab, E.row[row].render, E.row[row].size - 1);
-
+        for (int col = 0; col < E.row[row].size - 1; col++)
+        {
+            if (E.row[row].render[col] == 'O' || E.row[row].render[col] == '@')
+            {
+                abBuff(ab, "\x1b[32m", 6);
+                abBuff(ab, &E.row[row].render[col], 1);
+                abBuff(ab, "\x1b[39m", 5);
+            }
+            else if (E.row[row].render[col] == '*')
+            {
+                abBuff(ab, "\x1b[31m", 6);
+                abBuff(ab, &E.row[row].render[col], 1);
+                abBuff(ab, "\x1b[39m", 5);
+            }
+            else
+            {
+                abBuff(ab, &E.row[row].render[col], 1);
+            }
+        }
         // Right side
         abBuff(ab, "\x1b[100m", 6);
         abBuff(ab, " ", 1);
@@ -298,6 +382,16 @@ void drawWindow(struct abuf *ab)
     abBuff(ab, "\r\n", 2);
 }
 
+/* Status Bar */
+void drawStatusBar(struct abuf *ab)
+{
+    abBuff(ab, "\x1b[93m", 5);
+    char score[80];
+    snprintf(score, sizeof(score), "SCORE: %d | HI-SCORE: %d (Press 'q' to QUIT)", E.score, E.highScore);
+    abBuff(ab, score, strlen(score));
+    abBuff(ab, "\x1b[39m", 5);
+}
+/* refresh */
 void refreshScreen()
 {
     struct abuf ab = {NULL, 0};
@@ -306,6 +400,7 @@ void refreshScreen()
     renderSnake();
     abBuff(&ab, "\x1b[H", 3);
     drawWindow(&ab);
+    drawStatusBar(&ab);
     write(STDIN_FILENO, ab.b, ab.len);
     freeBuff(&ab);
 }
@@ -336,6 +431,7 @@ void init()
     snake.body->pos_y = ((E.window_rows - 1) / 2) - 1;
     snake.body->symbol = '@';
     snake.head = snake.body;
+    addSnakeSeg();
 
     E.score = 0;
     snake.dir_x = 1;
@@ -356,7 +452,7 @@ int main()
         refreshScreen();
         processKey();
         moveSnake();
-        usleep(100000);
+        usleep(75000);
     }
     disableRawMode();
 }
