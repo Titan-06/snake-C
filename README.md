@@ -1,4 +1,4 @@
-# snake-C
+# Snake-C
 
 ![Snake Game](images/image.png)
 
