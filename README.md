@@ -26,8 +26,5 @@ Once compiled, start the game by running:
 ```./snake```
 
 ## Controls
-* **W:** Move Up
-* **A:** Move Left
-* **S:** Move Down
-* **D:** Move Right
-* **Q / Ctrl+C:** Quit Game
+* **Arrow Keys:** Move Up, Move Left, Move Down, Move Right
+* **q:** Quit Game
