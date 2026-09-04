@@ -20,6 +20,7 @@ A classic Snake game built entirely in C that runs directly in your terminal. It
 **1. Compile the game**
 Open your terminal in the project directory and run:
 ```gcc main.c -o snake```
+
 **2. Run the game**
 Once compiled, start the game by running:
 ```./snake```
