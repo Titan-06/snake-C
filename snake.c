@@ -165,7 +165,7 @@ void placeFood()
             break;
         }
     }
-    E.row[loc_y].render[loc_x] = '*';
+    E.row[loc_y].render[loc_x] = '0';
     E.food_x = loc_x;
     E.food_y = loc_y;
     E.food_on = 1;
@@ -313,7 +313,7 @@ void emptyTheGame()
     {
         for (int j = 0; j < E.window_cols - 2; j++)
         {
-            if (E.row[i].render[j] == '*')
+            if (E.row[i].render[j] == '0')
                 continue;
             E.row[i].render[j] = ' ';
         }
@@ -333,7 +333,7 @@ void renderSnake()
 void drawWindow(struct abuf *ab)
 {
     // Drawing the head of the box
-    abBuff(ab, "\x1b[100m", 6);
+    abBuff(ab, "\x1b[47m", 5);
     for (int header = 0; header < E.window_cols; header++)
     {
         abBuff(ab, " ", 1);
@@ -345,18 +345,18 @@ void drawWindow(struct abuf *ab)
     for (int row = 0; row < E.window_rows - 3; row++)
     {
         // Left side
-        abBuff(ab, "\x1b[100m", 6);
+        abBuff(ab, "\x1b[47m", 5);
         abBuff(ab, " ", 1);
         abBuff(ab, "\x1b[49m", 5);
         for (int col = 0; col < E.row[row].size - 1; col++)
         {
             if (E.row[row].render[col] == 'O' || E.row[row].render[col] == '@')
             {
-                abBuff(ab, "\x1b[32m", 6);
+                abBuff(ab, "\x1b[92m", 6);
                 abBuff(ab, &E.row[row].render[col], 1);
                 abBuff(ab, "\x1b[39m", 5);
             }
-            else if (E.row[row].render[col] == '*')
+            else if (E.row[row].render[col] == '0')
             {
                 abBuff(ab, "\x1b[31m", 6);
                 abBuff(ab, &E.row[row].render[col], 1);
@@ -368,12 +368,12 @@ void drawWindow(struct abuf *ab)
             }
         }
         // Right side
-        abBuff(ab, "\x1b[100m", 6);
+        abBuff(ab, "\x1b[47m", 5);
         abBuff(ab, " ", 1);
         abBuff(ab, "\x1b[49m", 5);
     }
     // Drawing the bottom of the box
-    abBuff(ab, "\x1b[100m", 6);
+    abBuff(ab, "\x1b[47m", 5);
     for (int footer = 0; footer < E.window_cols; footer++)
     {
         abBuff(ab, " ", 1);
@@ -385,7 +385,7 @@ void drawWindow(struct abuf *ab)
 /* Status Bar */
 void drawStatusBar(struct abuf *ab)
 {
-    abBuff(ab, "\x1b[93m", 5);
+    abBuff(ab, "\x1b[35m", 5);
     char score[80];
     snprintf(score, sizeof(score), "SCORE: %d | HI-SCORE: %d (Press 'q' to QUIT)", E.score, E.highScore);
     abBuff(ab, score, strlen(score));
@@ -398,7 +398,8 @@ void refreshScreen()
     foodEatOrNot(); // Here check if it has eaten food or not
     placeFood();
     renderSnake();
-    abBuff(&ab, "\x1b[H", 3);
+    abBuff(&ab, "\x1b[H", 3);   // Places the cursor at the start
+    abBuff(&ab, "\x1b[25l", 5); // Hides the cursor
     drawWindow(&ab);
     drawStatusBar(&ab);
     write(STDIN_FILENO, ab.b, ab.len);
@@ -452,7 +453,7 @@ int main()
         refreshScreen();
         processKey();
         moveSnake();
-        usleep(75000);
+        usleep(80000);
     }
     disableRawMode();
 }
