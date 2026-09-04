@@ -137,6 +137,8 @@ void moveSnake()
         death();
         snake.head->pos_x = (E.window_cols / 2) - 1;
         snake.head->pos_y = ((E.window_rows - 1) / 2) - 1;
+        snake.dir_x = 1;
+        snake.dir_y = 0;
         addSnakeSeg();
     }
 }
@@ -302,6 +304,7 @@ void processKey()
     case 'q':
         write(STDOUT_FILENO, "\x1b[2J", 4);
         write(STDOUT_FILENO, "\x1b[H", 3);
+        write(STDOUT_FILENO, "\x1b[?25h", 6);
         freeEverything();
         exit(0);
     }
@@ -398,11 +401,10 @@ void refreshScreen()
     foodEatOrNot(); // Here check if it has eaten food or not
     placeFood();
     renderSnake();
-    abBuff(&ab, "\x1b[H", 3);   // Places the cursor at the start
-    abBuff(&ab, "\x1b[25l", 5); // Hides the cursor
+    abBuff(&ab, "\x1b[H", 3); // Places the cursor at the start
     drawWindow(&ab);
     drawStatusBar(&ab);
-    write(STDIN_FILENO, ab.b, ab.len);
+    write(STDOUT_FILENO, ab.b, ab.len);
     freeBuff(&ab);
 }
 
@@ -410,6 +412,7 @@ void refreshScreen()
 void init()
 {
     getWindowSize();
+    write(STDOUT_FILENO, "\x1b[?25l", 6);
 
     /* Initializing the rows*/
     E.row = malloc(sizeof(erow) * (E.window_rows - 3));
